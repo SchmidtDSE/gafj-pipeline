@@ -1,0 +1,1 @@
+Directory to hold credentials for APIs. Those credentials should not go into git.

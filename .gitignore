@@ -1,0 +1,5 @@
+.ipynb_checkpoints
+keys/*.txt
+keys/*.json
+samples/*.json
+samples/*.csv
