@@ -2,13 +2,14 @@ import csv
 import datetime
 import dateutil.relativedelta
 import json
+import os
 import queue
 import urllib.parse
 
 import boto3
 import requests
 
-import struct
+import record_struct
 import util
 
 
@@ -43,11 +44,11 @@ class NewsDataIterable:
 
     def _make_internal_request(self):
         if self._next_page:
-            params['page'] = self._next_page
+            self._params['page'] = self._next_page
 
         response = requests.get(
-            self._news_data_endpoint + 'archive',
-            params=params
+            self._url,
+            params=self._params
         )
 
         if response.status_code != 200:
@@ -59,7 +60,7 @@ class NewsDataIterable:
         if len(results) == 0:
             self._done = True
         else:
-            self._next_page = results_json['page']
+            self._next_page = results_json['nextPage']
 
         for result in results:
             self._waiting_results.put(result)
@@ -67,8 +68,12 @@ class NewsDataIterable:
 
 class LanguageCodeGetter:
 
-    def __init__(self, path):
-        with open('docs_languages.csv') as f:
+    def __init__(self, path=None):
+        if path is None:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(base_dir, 'samples', 'docs_languages.csv')
+
+        with open(path) as f:
             records = csv.DictReader(f)
             records_sanitized = map(
                 lambda x: (
@@ -79,7 +84,7 @@ class LanguageCodeGetter:
             )
             self._indexed_languages = dict(records_sanitized)
 
-    def lookup_language_code(self, full_name):
+    def lookup(self, full_name):
         full_name_safe = full_name.lower().strip()
         return self._indexed_languages[full_name_safe]
 
@@ -105,19 +110,21 @@ class QueryFacade:
         self._translate_client = self._build_translate_client()
     
     def sample_sources(self, country, max_count=100):
+        language_code_getter = LanguageCodeGetter()
+
         def parse_record(record):
             name = record['source_id']
             url = urllib.parse.urlparse(record['link']).netloc
             categories = record['category']
-            language = lookup_language_code(record['language'])
-            return Source(name, url, categories, language, country)
+            language = language_code_getter.lookup(record['language'])
+            return record_struct.Source(name, url, categories, language, country)
         
         def get_for_priority(priority, top=True):
             url = self._news_data_endpoint + 'news'
             params = {
                 'prioritydomain': priority,
                 'country': country,
-                'apikey': newsdata_key
+                'apikey': self._news_data_key
             }
             
             if top:
@@ -149,7 +156,7 @@ class QueryFacade:
         return sources
     
     def get_articles(self, country='gb', language='en', year=2023, month=6,
-        query='Food', domain=None):
+        query='Food', domain=None, priority='top', max_count=None):
         from_date = datetime.date(year, month, 1)
         to_date_exclusive = from_date + dateutil.relativedelta.relativedelta(months=1)
         to_date = to_date_exclusive + dateutil.relativedelta.relativedelta(days=-1)
@@ -161,16 +168,17 @@ class QueryFacade:
             'language': language,
             'from_date': from_date,
             'to_date': to_date,
-            'q': query_translated.get_translated(),
-            'apikey': newsdata_key
+            'qInTitle': query_translated.get_translated(),
+            'apikey': self._news_data_key,
+            'prioritydomain': priority
         }
         
         if domain:
             params['domainurl'] = domain
 
-        results = NewsDataIterable(url, params)
+        results = NewsDataIterable(url, params, max_count=max_count)
 
-        locale = struct.Locale(country, language)
+        locale = record_struct.Locale(country, language)
 
         def parse_result(record):
             url = record['link']
@@ -194,7 +202,7 @@ class QueryFacade:
             title = self.translate(title_untranslated, source=language)
             content = self.translate(content_untranslated, source=language)
 
-            return Article(
+            return record_struct.Article(
                 url,
                 title,
                 keywords,
@@ -210,7 +218,7 @@ class QueryFacade:
     
     def translate(self, target, source='en', to='en', cache=False):
         if source == to:
-            return struct.TranslatedText(target, source, target, to)
+            return record_struct.TranslatedText(target, source, target, to)
 
         if not cache:
             return self._translate_force(target, source=source, to=to)
@@ -257,10 +265,9 @@ class QueryFacade:
         pieces_translated = map(lambda x: x['TranslatedText'], pieces_responses)
         translated = ' '.join(pieces_translated)
         
-        return struct.TranslatedText(
+        return record_struct.TranslatedText(
             target,
             source,
             translated,
             to
         )
-

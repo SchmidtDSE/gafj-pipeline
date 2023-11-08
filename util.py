@@ -44,3 +44,4 @@ class TranslateChunker:
         
         self._current_chunk = self._current_chunk + ' ' + self._current_word
         self._current_word = ''
+
