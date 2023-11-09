@@ -39,7 +39,15 @@ def main():
     with open(output_loc, 'w') as f:
         writer = csv.DictWriter(f, fieldnames=OUTPUT_COLUMNS)
         writer.writeheader()
-        writer.writerows(sources_dict_simple)
+
+        i = 0
+        for output_record in sources_dict_simple:
+            writer.writerow(output_record)
+            i += 1
+
+            if i % 50 == 0:
+                print('Found %d sources.' % i)
+                f.flush()
 
 
 if __name__ == '__main__':

@@ -4,6 +4,8 @@ import dateutil.relativedelta
 import json
 import os
 import queue
+import random
+import time
 import urllib.parse
 
 import boto3
@@ -42,7 +44,7 @@ class NewsDataIterable:
         self._count += 1
         return self._waiting_results.get()
 
-    def _make_internal_request(self):
+    def _make_internal_request(self, retry=True):
         if self._next_page:
             self._params['page'] = self._next_page
 
@@ -52,7 +54,11 @@ class NewsDataIterable:
         )
 
         if response.status_code != 200:
-            raise RuntimeError('Error (%d): %s' % (response.status_code, response.text))
+            if 'TooManyRequests' in response.text and retry:
+                time.sleep(random.randint(30, 90))
+                return self._make_internal_request(retry=False)
+            else:
+                raise RuntimeError('Error (%d): %s' % (response.status_code, response.text))
 
         results_json = response.json()
         results = results_json['results']
