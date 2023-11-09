@@ -1,26 +1,16 @@
 import json
 import sys
 
-import client
+import util
 
-USAGE_STR = 'USAGE: python manual.py [sample_sources|get_articles]'
+USAGE_STR = 'USAGE: python sample.py [sample_sources|get_articles]'
 NUM_ARGS = 1
 
-USAGE_STR_SAMPLE_SOURCES = 'USAGE: python manual.py sample_sources [country] [newskey_path] [awskey_path] [output]'
+USAGE_STR_SAMPLE_SOURCES = 'USAGE: python sample.py sources [country] [newskey_path] [awskey_path] [output]'
 NUM_ARGS_SAMPLE_SOURCES = 4
 
-USAGE_STR_GET_ARTICLES = 'USAGE: python manual.py get_articles [country] [language] [year] [month] [query] [max] [newskey_path] [awskey_path] [output]'
+USAGE_STR_GET_ARTICLES = 'USAGE: python sample.py articles [country] [language] [year] [month] [query] [max] [newskey_path] [awskey_path] [output]'
 NUM_ARGS_GET_ARTICLES = 9
-
-
-def build_query_facade(news_key_path, aws_key_path):
-    with open(news_key_path) as f:
-        news_key = f.read().strip()
-
-    with open(aws_key_path) as f:
-        aws_key = json.load(f)
-
-    return client.QueryFacade(news_key, aws_key)
 
 
 def main_sample_sources(args):
@@ -33,7 +23,7 @@ def main_sample_sources(args):
     aws_key_path = args[2]
     output_path = args[3]
 
-    facade = build_query_facade(news_key_path, aws_key_path)
+    facade = util.build_query_facade(news_key_path, aws_key_path)
 
     results = facade.sample_sources(country)
 
@@ -85,9 +75,9 @@ def main():
     command = sys.argv[1]
     additional_args = sys.argv[2:]
 
-    if command == 'sample_sources':
+    if command == 'sources':
         main_sample_sources(additional_args)
-    elif command == 'get_articles':
+    elif command == 'articles':
         main_get_articles(additional_args)
     else:
         print('Unknown command: ' + command)

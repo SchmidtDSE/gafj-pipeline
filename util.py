@@ -1,3 +1,9 @@
+import csv
+import json
+
+import client
+
+
 class TranslateChunker:
     
     def __init__(self, max_size=950):
@@ -45,3 +51,20 @@ class TranslateChunker:
         self._current_chunk = self._current_chunk + ' ' + self._current_word
         self._current_word = ''
 
+
+def build_query_facade(news_key_path, aws_key_path):
+    with open(news_key_path) as f:
+        news_key = f.read().strip()
+
+    with open(aws_key_path) as f:
+        aws_key = json.load(f)
+
+    return client.QueryFacade(news_key, aws_key)
+
+
+def load_country_codes(countries_loc):
+    with open(countries_loc) as f:
+        countries_reader = csv.DictReader(f)
+        country_codes = map(lambda x: x['Country Code'], countries_reader)
+        country_codes_clean = map(lambda x: x.strip().lower(), country_codes)
+        return list(country_codes_clean)
